@@ -1,23 +1,19 @@
-const fs = require('fs');
+// Express application
 const express = require('express');
+const morgan = require('morgan');
+
+const tourRouter = require('./routes/tourRoutes');
+const userRouter = require('./routes/userRoutes');
 
 const app = express();
 
-const tours = JSON.parse(
-  fs.readFileSync(`${__dirname}/dev-data/data/tours-simple.json`)
-);
+// Middlewares
+if (process.env.NODE_ENV === 'development') app.use(morgan('dev'));
+app.use(express.json());
+app.use(express.static(`${__dirname}/public`));
 
-const port = 3000;
+// Mounting routers
+app.use('/api/v1/tours', tourRouter);
+app.use('/api/v1/users', userRouter);
 
-app.get('/api/v1/tours', (req, res) => {
-  res.status(200).json({
-    status: 'success',
-    data: {
-      tours,
-    },
-  });
-});
-
-app.listen(port, () => {
-  console.log(`App running on port ${port}...`);
-});
+module.exports = app;
