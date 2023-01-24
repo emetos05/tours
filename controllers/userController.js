@@ -1,3 +1,81 @@
-exports.getAllUsers = (req, res) => {};
-exports.getUser = (req, res) => {};
-exports.createUser = (req, res) => {};
+const User = require('../models/userModel');
+const AppError = require('../utilities/appError');
+const catchAsync = require('../utilities/catchAsync');
+
+const filterObj = (obj, ...allowedFields) => {
+  const newObj = {};
+  Object.keys(obj).forEach((el) => {
+    if (allowedFields.includes(el)) newObj[el] = obj[el];
+  });
+  return newObj;
+};
+
+exports.getAllUsers = catchAsync(async (req, res, next) => {
+  const users = await User.find();
+
+  res.status(200).json({
+    status: 'success',
+    results: users.length,
+    data: { users },
+  });
+});
+
+// To enable current user to update data (not password)
+exports.updateCurrent = catchAsync(async (req, res, next) => {
+  if (req.body.password || req.body.passwordConfirm) {
+    return next(
+      new AppError(
+        'This route is not for updating password, please check /updateMyPassword',
+        400
+      )
+    );
+  }
+
+  const filteredBody = filterObj(req.body, 'name', 'email');
+  const updateUser = await User.findByIdAndUpdate(req.user.id, filteredBody, {
+    new: true,
+    runValidators: true,
+  });
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      user: updateUser,
+    },
+  });
+});
+
+// To enable current user to delete account
+exports.deleteCurrent = catchAsync(async (req, res, update) => {
+  await User.findByIdAndUpdate(req.user.id, { isActive: false });
+
+  res.status(204).json({
+    status: 'success',
+    data: null,
+  });
+});
+
+exports.getUser = (req, res) => {
+  res.status(500).json({
+    status: 'error',
+    message: 'This route is not yet defined!',
+  });
+};
+exports.createUser = (req, res) => {
+  res.status(500).json({
+    status: 'error',
+    message: 'This route is not yet defined!',
+  });
+};
+exports.updateUser = (req, res) => {
+  res.status(500).json({
+    status: 'error',
+    message: 'This route is not yet defined!',
+  });
+};
+exports.deleteUser = (req, res) => {
+  res.status(500).json({
+    status: 'error',
+    message: 'This route is not yet defined!',
+  });
+};
