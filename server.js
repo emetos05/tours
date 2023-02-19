@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 // Global Error handling for uncaught exceptions
 process.on('uncaughtException', (err) => {
   console.log('UNCAUGTH EXCEPTION, Shutting down app');
+  console.log(err.name, err.message);
   process.exit(1);
 });
 
@@ -33,6 +34,7 @@ const server = app.listen(port, () => {
 // Global Error handling for unhandled rejections
 process.on('unhandledRejection', (err) => {
   console.log('UNHANDLED REJECTION, Shutting down app');
+  console.log(err.name, err.message);
   server.close(() => {
     process.exit(1);
   });
