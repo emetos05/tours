@@ -59,6 +59,15 @@ exports.login = catchAsync(async (req, res, next) => {
   createSendToken(user, 200, res);
 });
 
+exports.logout = (req, res) => {
+  res.cookie('jwt', 'loggedout', {
+    expires: new Date(Date.now() + 10 * 1000),
+    httpOnly: true,
+  });
+
+  res.status(200).json({ status: 'success' });
+};
+
 // Check if user is logged in to gain access
 exports.protectRoute = catchAsync(async (req, res, next) => {
   // Get token and check if it exists
@@ -68,6 +77,8 @@ exports.protectRoute = catchAsync(async (req, res, next) => {
     req.headers.authorization.startsWith('Bearer')
   ) {
     token = req.headers.authorization.split(' ')[1];
+  } else if (req.cookies.jwt) {
+    token = req.cookies.jwt;
   }
 
   if (!token) return next(new AppError('You are not logged in!', 401));
@@ -91,8 +102,37 @@ exports.protectRoute = catchAsync(async (req, res, next) => {
 
   // Grant access to protected route
   req.user = currentUser;
+  res.locals.user = currentUser;
   next();
 });
+
+// Only for rendered pages
+exports.isLoggedIn = async (req, res, next) => {
+  // Check if cookie exists
+  if (req.cookies.jwt) {
+    try {
+      // Verify cookie
+      const decodedData = await promisify(jwt.verify)(
+        req.cookies.jwt,
+        process.env.JWT_SECRET
+      );
+
+      // Check if user still exists
+      const currentUser = await User.findById(decodedData.id);
+      if (!currentUser) return next();
+
+      // Check if user changed password after cookie was issued
+      if (currentUser.changedPassword(decodedData.iat)) return next();
+
+      // There is a logged in user
+      res.locals.user = currentUser;
+      return next();
+    } catch (err) {
+      return next();
+    }
+  }
+  next();
+};
 
 // User authorization
 // Wrapper function to enable passing arguments into a middleware
@@ -182,7 +222,7 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
 exports.updatePassword = catchAsync(async (req, res, next) => {
   const user = await User.findById(req.user.id).select('+password');
 
-  if (!(await user.checkPassword(req.body.currentPassword, user.password))) {
+  if (!(await user.checkPassword(req.body.passwordCurrent, user.password))) {
     return next(new AppError('Your current password is wrong.', 401));
   }
 
