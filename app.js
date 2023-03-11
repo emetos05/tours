@@ -8,6 +8,7 @@ const mongoSanitize = require('express-mongo-sanitize');
 const xss = require('xss-clean');
 const hpp = require('hpp');
 const cookieParser = require('cookie-parser');
+const crypto = require('crypto');
 
 const AppError = require('./utilities/appError');
 const globalErrorHandler = require('./controllers/errorController');
@@ -15,6 +16,7 @@ const viewRouter = require('./routes/viewRoutes');
 const tourRouter = require('./routes/tourRoutes');
 const userRouter = require('./routes/userRoutes');
 const reviewRouter = require('./routes/reviewRoutes');
+const bookingRouter = require('./routes/bookingRoutes');
 
 const app = express();
 
@@ -27,9 +29,27 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Set security HTTP headers
 // app.use(helmet());
+app.use((req, res, next) => {
+  res.locals.cspNonce = crypto.randomBytes(16).toString('hex');
+  next();
+});
+
 app.use(
   helmet({
-    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        'script-src': [
+          "'self'",
+          'https://js.stripe.com',
+          (req, res) => `'nonce-${res.locals.cspNonce}'`,
+          'strict-dynamic',
+        ],
+        'frame-src': ["'self'", 'https://js.stripe.com'],
+        'connect-src': ["'self'", 'ws://127.0.0.1:55150/'],
+      },
+    },
   })
 );
 
@@ -80,6 +100,7 @@ app.use('/', viewRouter);
 app.use('/api/v1/tours', tourRouter);
 app.use('/api/v1/users', userRouter);
 app.use('/api/v1/reviews', reviewRouter);
+app.use('/api/v1/bookings', bookingRouter);
 
 app.all('*', (req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this Server`, 404));
